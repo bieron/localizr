@@ -1,0 +1,9 @@
+#!/usr/bin/env python
+import json
+with open('locations.json') as f:
+    data = json.load(f)
+for k in data:
+    data[k] = {l['facebook_places_id']: l for l in data[k]}.values()
+with open('wip.js', 'w') as f:
+    f.write('places = ')
+    json.dump(data, f)

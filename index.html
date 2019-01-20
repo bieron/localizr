@@ -1,0 +1,54 @@
+<html><head>
+    <title>Locate your Instagram posts and likes!</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.4.0/dist/leaflet.css"
+   integrity="sha512-puBpdR0798OZvTTbP4A8Ix/l+A4dHDD0DGqYW6RQ+9jxkRFclaxxQb/SJAWZfWAkuyeQUytO7+7N4QKrDh+drA=="
+   crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.4.0/dist/leaflet.js"
+   integrity="sha512-QVftwZFqvtRNi0ZyCtsznlKSWOStnDORoefr1enyq5mVL4tmKB3S/EnC3rRJcxCPavG10IcrVGSmPh6Qw5lwrg=="
+   crossorigin=""></script>
+    <script src="static/js/wip.js"></script>
+    <script src="static/js/jq.js"></script>
+    <style>
+#mapid {height:100%}
+    </style>
+</head><body>
+    <div id="mapid"></div>
+    <script>
+
+function getMarker(color) {
+    return L.icon({
+        iconUrl: 'static/images/marker-' + color + '.svg',
+        iconSize: [20, 60],
+    })
+}
+
+function getGeoAvg(places) {
+    let lat = 0, lng = 0
+    for (let i in places) {
+        lat += places[i].lat
+        lng += places[i].lng
+    }
+    return [lat/places.length, lng/places.length]
+}
+
+function markPlaces(map, places, opts) {
+    for (let i in places) {
+        let p = places[i]
+        let marker = L.marker([p.lat, p.lng], opts).addTo(map)
+        marker.bindPopup(p.short_name || p.name)
+    }
+}
+
+var mymap = L.map('mapid').setView(getGeoAvg(places.own), 3)
+markPlaces(mymap, places.own, {icon: getMarker('blue')})
+markPlaces(mymap, places.liked, {icon: getMarker('red')})
+
+L.tileLayer('https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token={accessToken}', {
+    attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors, <a href="https://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, Imagery © <a href="https://www.mapbox.com/">Mapbox</a>',
+    maxZoom: 18,
+    id: 'mapbox.streets',
+    accessToken: token,
+}).addTo(mymap)
+
+    </script>
+</body></html>
