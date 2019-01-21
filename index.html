@@ -15,6 +15,58 @@
     <div id="mapid"></div>
     <script>
 
+function Place(place) {
+    L.LatLng.call(this, place.lat, place.lng)
+    this.name = place.short_name || place.name
+}
+Place.prototype = Object.create(L.LatLng.prototype);
+Place.prototype.getMarker = function(opts) {
+    const marker = L.marker([this.lat, this.lng], opts)
+    marker.bindPopup(this.name)
+    return marker
+}
+
+function buildPlaces(locations) {
+    const places = []
+    for (l in locations) {
+        places.push(new Place(locations[l]))
+    }
+    return places
+}
+
+function getDistance(a, b) {
+    return Math.sqrt(Math.pow(a.lat - b.lat, 2) + Math.pow(a.lng - b.lng, 2))
+}
+
+function clusterPlaces(map, places, radius) {
+    const points = places.map(p => map.latLngToLayerPoint(p))
+    const clusters = []
+    for (let i=0; i < points.length-1; ++i) {
+        for (let j=i+1; j < points.length; ++j) {
+            if (points[i].distanceTo(points[j]) < radius) {
+                if (typeof points[i].cluster === 'undefined') {
+                    if (typeof points[j].cluster === 'undefined') {
+                        points[i].cluster = points[j].cluster = clusters.length
+                        clusters.push([places[i], places[j]])
+                    } else {
+                        points[i].cluster = points[j].cluster
+                        clusters[ points[j].cluster ].push(places[i])
+                    }
+                } else if (typeof points[j].cluster === 'undefined') {
+                    points[j].cluster = points[i].cluster
+                    clusters[ points[i].cluster ].push(places[j])
+                }
+            }
+        }
+    }
+    for (let i in points) {
+        if (typeof points[i].cluster === 'undefined') {
+            clusters.push([places[i]])
+        }
+    }
+    return clusters
+}
+
 function getMarker(color) {
     return L.icon({
         iconUrl: 'static/images/marker-' + color + '.svg',
@@ -22,13 +74,17 @@ function getMarker(color) {
     })
 }
 
-function getGeoAvg(places) {
-    let lat = 0, lng = 0
-    for (let i in places) {
-        lat += places[i].lat
-        lng += places[i].lng
+function getGeoAvg(lls) {
+    if (lls.length == 1) {
+        return lls[0]
     }
-    return [lat/places.length, lng/places.length]
+    let lat = 0, lng = 0, count = 0
+    for (let i in lls) {
+        count += 1
+        lat += lls[i].lat
+        lng += lls[i].lng
+    }
+    return [lat/count, lng/count]
 }
 
 function markPlaces(map, places, opts) {
@@ -39,9 +95,18 @@ function markPlaces(map, places, opts) {
     }
 }
 
-var mymap = L.map('mapid').setView(getGeoAvg(places.own), 3)
-markPlaces(mymap, places.own, {icon: getMarker('blue')})
-markPlaces(mymap, places.liked, {icon: getMarker('red')})
+function markClusters(map, places, opts) {
+    const clusters = clusterPlaces(map, places, 5)
+    for (let c in clusters) {
+        const marker = L.marker(getGeoAvg(clusters[c]), opts).addTo(map)
+    }
+}
+
+const ownPlaces = buildPlaces(places.own)
+const likedPlaces = buildPlaces(places.liked)
+const mymap = L.map('mapid').setView(getGeoAvg(ownPlaces), 3)
+markClusters(mymap, ownPlaces, {icon: getMarker('blue')})
+markClusters(mymap, likedPlaces, {icon: getMarker('red')})
 
 L.tileLayer('https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token={accessToken}', {
     attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors, <a href="https://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, Imagery © <a href="https://www.mapbox.com/">Mapbox</a>',
